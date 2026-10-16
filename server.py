@@ -1,7 +1,8 @@
-"""Server web minimale per la registrazione utenti.
+"""Applicazione Flask per registrazione e login utenti.
 
-Avvio: python server.py
-Poi apri: http://localhost:8000
+Avvio locale:
+    pip install -r requirements.txt
+    python server.py
 """
 
 from __future__ import annotations
@@ -12,15 +13,17 @@ import os
 import re
 import secrets
 import sqlite3
-from http import HTTPStatus
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs
+
+from flask import Flask, abort, jsonify, request, send_from_directory
 
 
 BASE_DIR = Path(__file__).resolve().parent
 DATABASE_PATH = BASE_DIR / "users.db"
 EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+STATIC_FILES = {"index.html", "register.html", "welcome.html", "style.css", "database.svg"}
+
+app = Flask(__name__)
 
 
 def setup_database() -> None:
@@ -47,7 +50,6 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, stored_hash: str) -> bool:
-    """Utile per aggiungere in seguito un endpoint di login."""
     salt_hex, digest_hex = stored_hash.split("$", 1)
     computed = hashlib.pbkdf2_hmac(
         "sha256", password.encode("utf-8"), bytes.fromhex(salt_hex), 600_000
@@ -55,86 +57,61 @@ def verify_password(password: str, stored_hash: str) -> bool:
     return hmac.compare_digest(computed.hex(), digest_hex)
 
 
-class RegistrationHandler(SimpleHTTPRequestHandler):
-    """Serve i file statici e riceve login e registrazione."""
+@app.get("/")
+def home():
+    return send_from_directory(BASE_DIR, "index.html")
 
-    def do_POST(self) -> None:
-        if self.path not in {"/register", "/login"}:
-            self.send_error(HTTPStatus.NOT_FOUND, "Endpoint non trovato")
-            return
 
-        try:
-            length = int(self.headers.get("Content-Length", "0"))
-        except ValueError:
-            self.respond_json(HTTPStatus.BAD_REQUEST, '{"message":"Richiesta non valida."}')
-            return
+@app.get("/<path:filename>")
+def static_file(filename: str):
+    """Serve solo i file pubblici dell'interfaccia."""
+    if filename not in STATIC_FILES:
+        abort(404)
+    return send_from_directory(BASE_DIR, filename)
 
-        if length > 10_000:
-            self.respond_json(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, '{"message":"Richiesta troppo grande."}')
-            return
 
-        data = parse_qs(self.rfile.read(length).decode("utf-8"), keep_blank_values=True)
-        email = data.get("email", [""])[0].strip().lower()
-        password = data.get("password", [""])[0]
+@app.post("/register")
+def register():
+    name = request.form.get("name", "").strip()
+    email = request.form.get("email", "").strip().lower()
+    password = request.form.get("password", "")
 
-        if self.path == "/login":
-            self.login(email, password)
-            return
+    if not name or not EMAIL_PATTERN.fullmatch(email) or len(password) < 8:
+        return jsonify(
+            message="Inserisci nome, un indirizzo email valido e una password di almeno 8 caratteri."
+        ), 400
 
-        name = data.get("name", [""])[0].strip()
-
-        if not name or not EMAIL_PATTERN.fullmatch(email) or len(password) < 8:
-            self.respond_json(
-                HTTPStatus.BAD_REQUEST,
-                '{"message":"Inserisci nome, un indirizzo email valido e una password di almeno 8 caratteri."}',
-            )
-            return
-
-        try:
-            with sqlite3.connect(DATABASE_PATH) as connection:
-                connection.execute(
-                    "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
-                    (name, email, hash_password(password)),
-                )
-        except sqlite3.IntegrityError:
-            self.respond_json(HTTPStatus.CONFLICT, '{"message":"Esiste già un utente con questa email."}')
-            return
-
-        self.respond_json(HTTPStatus.CREATED, '{"message":"Registrazione completata."}')
-
-    def login(self, email: str, password: str) -> None:
-        """Controlla le credenziali senza rivelare se l'email esiste."""
+    try:
         with sqlite3.connect(DATABASE_PATH) as connection:
-            user = connection.execute(
-                "SELECT password_hash FROM users WHERE email = ?", (email,)
-            ).fetchone()
-
-        if user is None or not verify_password(password, user[0]):
-            self.respond_json(
-                HTTPStatus.UNAUTHORIZED,
-                '{"message":"Email o password non corretti."}',
+            connection.execute(
+                "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+                (name, email, hash_password(password)),
             )
-            return
+    except sqlite3.IntegrityError:
+        return jsonify(message="Esiste già un utente con questa email."), 409
 
-        self.respond_json(HTTPStatus.OK, '{"message":"Accesso effettuato."}')
+    return jsonify(message="Registrazione completata."), 201
 
-    def respond_json(self, status: HTTPStatus, body: str) -> None:
-        encoded = body.encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(encoded)))
-        self.end_headers()
-        self.wfile.write(encoded)
 
+@app.post("/login")
+def login():
+    email = request.form.get("email", "").strip().lower()
+    password = request.form.get("password", "")
+
+    with sqlite3.connect(DATABASE_PATH) as connection:
+        user = connection.execute(
+            "SELECT password_hash FROM users WHERE email = ?", (email,)
+        ).fetchone()
+
+    if user is None or not verify_password(password, user[0]):
+        return jsonify(message="Email o password non corretti."), 401
+
+    return jsonify(message="Accesso effettuato.")
+
+
+setup_database()
 
 if __name__ == "__main__":
-    os.chdir(BASE_DIR)  # SimpleHTTPRequestHandler servirà la cartella del progetto.
-    setup_database()
-    server = ThreadingHTTPServer(("localhost", 8000), RegistrationHandler)
-    print("Server in ascolto su http://localhost:8000")
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\nServer arrestato.")
-    finally:
-        server.server_close()
+    # PORT permette l'avvio su servizi cloud; in locale resta disponibile su 8000.
+    port = int(os.environ.get("PORT", "8000"))
+    app.run(host="0.0.0.0", port=port, debug=True)
