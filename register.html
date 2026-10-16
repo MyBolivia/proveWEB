@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Crea il tuo account</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1>Crea un account</h1>
+      <p>Inserisci i tuoi dati per registrarti.</p>
+      <form id="registration-form" action="/register" method="post">
+        <label for="name">Nome</label>
+        <input id="name" name="name" type="text" autocomplete="name" required maxlength="100" />
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" required maxlength="254" />
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="new-password" required minlength="8" />
+        <small>Almeno 8 caratteri.</small>
+        <button type="submit">Registrati</button>
+        <p id="message" role="status" aria-live="polite"></p>
+      </form>
+      <p class="alternate">Hai già un account? <a href="index.html">Accedi</a></p>
+    </main>
+    <script>
+      const form = document.querySelector("#registration-form");
+      const message = document.querySelector("#message");
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        message.textContent = "Invio in corso…";
+        message.className = "";
+        const data = new URLSearchParams(new FormData(form));
+        const response = await fetch(form.action, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: data,
+        });
+        const result = await response.json();
+        message.textContent = result.message;
+        message.className = response.ok ? "success" : "error";
+        if (response.ok) form.reset();
+      });
+    </script>
+  </body>
+</html>

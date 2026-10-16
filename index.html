@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Accedi</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1>Accedi</h1>
+      <p>Inserisci le tue credenziali.</p>
+
+      <form id="login-form" action="/login" method="post">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" required maxlength="254" />
+
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required />
+
+        <button type="submit">Accedi</button>
+        <p id="message" role="status" aria-live="polite"></p>
+      </form>
+      <p class="alternate">Non hai un account? <a href="register.html">Registrati</a></p>
+    </main>
+
+    <script>
+      const form = document.querySelector("#login-form");
+      const message = document.querySelector("#message");
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        message.textContent = "Invio in corso…";
+        message.className = "";
+        const data = new URLSearchParams(new FormData(form));
+        const response = await fetch(form.action, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: data,
+        });
+        const result = await response.json();
+        message.textContent = result.message;
+        message.className = response.ok ? "success" : "error";
+        if (response.ok) window.location.href = "welcome.html";
+      });
+    </script>
+  </body>
+</html>

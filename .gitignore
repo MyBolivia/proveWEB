@@ -1,0 +1,9 @@
+# Database locale creato dal server a runtime
+users.db
+
+# Cache di Python
+__pycache__/
+*.py[cod]
+
+# Metadati di Windows
+desktop.ini

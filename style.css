@@ -1,0 +1,10 @@
+:root { font-family: system-ui, sans-serif; color: #1e4a88; background: #f4f7fb; }
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; }
+.card { width: min(420px, calc(100% - 3rem)); padding: 2rem; background: white; border-radius: 16px; box-shadow: 0 12px 35px #24344a20; }
+h1 { margin: 0; } label { display: block; margin-top: 1rem; font-weight: 600; }
+input { box-sizing: border-box; width: 100%; margin-top: .35rem; padding: .7rem; border: 1px solid #b9c4d2; border-radius: 7px; font: inherit; }
+small { color: #5e7a59; } button { width: 100%; margin-top: 1.4rem; padding: .75rem; border: 0; border-radius: 7px; background: #031d3f; color: white; font: inherit; font-weight: 700; cursor: pointer; }
+#message { min-height: 1.5em; } .success { color: #08783d; } .error { color: #b42525; }
+.alternate { margin: 1.25rem 0 0; text-align: center; } a { color: #1769e0; font-weight: 600; }
+.welcome { text-align: center; } .welcome img { display: block; margin: 0 auto 1rem; }
+.button-link { display: inline-block; margin-top: 1rem; padding: .75rem 1rem; border-radius: 7px; background: #17e032; color: white; text-decoration: none; }
